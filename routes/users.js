@@ -4,6 +4,35 @@ let { validatedResult, CreateUserValidator, ModifyUserValidator } = require("../
 let userModel = require("../schemas/users");
 let userController = require("../controllers/users");
 const { checkLogin, checkRole } = require("../utils/authHandler");
+let teacherModel = require("../schemas/teachers");
+let studentModel = require("../schemas/students");
+
+router.get("/", checkLogin, checkRole("ADMIN"), async function (req, res, next) {
+  let users = await userModel
+    .find({ isDeleted: false })
+  res.send(users);
+});
+router.get("/trash", checkLogin, checkRole("ADMIN"), async function (req, res, next) {
+  let users = await userModel.find({ isDeleted: true })
+  res.send(users);
+});
+router.put("/:id/restore", checkLogin, checkRole("ADMIN"), async function (req, res, next) {
+  try {
+    let id = req.params.id;
+    let updatedItem = await userModel.findByIdAndUpdate(
+      id,
+      { isDeleted: false },
+      { new: true }
+    );
+    if (!updatedItem) {
+      return res.status(404).send({ message: "id not found" });
+    }
+    res.send(updatedItem);
+  } catch (err) {
+    res.status(404).send({ message: err.message });
+  }
+});
+
 router.get("/:id", async function (req, res, next) {
   try {
     let result = await userModel
