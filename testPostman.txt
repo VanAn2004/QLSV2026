@@ -1,0 +1,1620 @@
+﻿================================================================================
+   POSTMAN TEST DOCUMENT — QuanLySinhVien_2HDA
+   Tong so: 90 API Endpoints (Cover 100% tu source code)
+   Ngay tao: 2026-04-07
+================================================================================
+Base URL        : http://localhost:3000/api/v1
+Content-Type    : application/json (tru Upload dung form-data)
+Authorization   : Bearer {{TOKEN}} (lay tu API Login)
+MongoDB         : mongodb://localhost:27017/QuanLySinhVien
+JWT_SECRET      : secret
+JWT_EXPIRES_IN  : 1h
+================================================================================
+
+HUONG DAN SU DUNG:
+  1. Chay Backend  : npm start (port 3000)
+  2. Chay seed.js  : node seed.js (tao tai khoan admin)
+  3. Thay {{TOKEN}} bang token tra ve tu Login
+  4. Thay {{ID}}    bang _id thuc te tra ve tu response
+  5. Test theo THU TU de tao du lieu phu thuoc
+
+THU TU TEST KHUYEN NGHI (da sap xep theo thu tu trong file):
+  0(Login) -> 1(Dept) -> 2(Class) -> 3(Semester) -> 4(Subject) -> 5(Teacher)
+  -> 6(Student) -> 7(CourseClass) -> 8(Auth) -> 9(Enrollment) -> 10(Grade)
+  -> 11(Attendance) -> 12(Notification) -> 13(Message) -> 14(Upload) -> 15(User)
+
+CA HOC HOP LE: 1-3 | 4-6 | 2-6 | 7-11
+NGAY HOC     : 2(Thu 2) → 7(Thu 7)
+PHONG HOC    : E1-01-01 → E1-09-18 (9 tang x 18 phong = 162 phong)
+================================================================================
+
+
+################################################################################
+###  BUOC 0: DANG NHAP ADMIN (BAT BUOC LAM DAU TIEN)
+################################################################################
+
+--- 0.1 Dang nhap Admin ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/login
+Headers: Content-Type: application/json
+Body   :
+{
+  "username": "admin",
+  "password": "Admin123@"
+}
+Expect : 200 — Tra ve chuoi token (string)
+Action : Copy token → Luu vao bien {{TOKEN}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"admin\", \"password\": \"Admin123@\"}"
+
+
+################################################################################
+###  NHOM 1: DEPARTMENTS — Quan ly Khoa (5 APIs)
+###  File: routes/departments.js | controllers/departments.js
+###  GET: khong can token | POST/PUT/DELETE: ADMIN
+################################################################################
+
+--- 1.1 Lay danh sach Khoa ---
+Method : GET
+URL    : http://localhost:3000/api/v1/departments
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang Departments[]
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/departments
+
+
+--- 1.2 Lay Khoa theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/departments/{{DEPT_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Object Department
+Expect : 404 — "ID NOT FOUND"
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/departments/{{DEPT_ID}}
+
+
+--- 1.3 Tao Khoa moi ---
+Method : POST
+URL    : http://localhost:3000/api/v1/departments
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "Khoa Cong Nghe Thong Tin",
+  "description": "Khoa CNTT"
+}
+Expect : 200 — Object Department moi
+Note   : name (required, unique), description (optional, default "")
+Action : Luu _id → {{DEPT_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/departments \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"Khoa Cong Nghe Thong Tin\", \"description\": \"Khoa CNTT\"}"
+
+
+--- 1.4 Cap nhat Khoa ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/departments/{{DEPT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "Khoa CNTT Updated",
+  "description": "Mo ta moi"
+}
+Expect : 200 — Object Department da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/departments/{{DEPT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"Khoa CNTT Updated\", \"description\": \"Mo ta moi\"}"
+
+
+--- 1.5 Xoa Khoa (cascade soft-delete Class → Student + Teacher) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/departments/{{DEPT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Department co isDeleted: true
+Note   : Cascade: soft-delete tat ca Class, Teacher, Student thuoc Khoa nay (transaction)
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/departments/{{DEPT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 2: CLASSES — Quan ly Lop (5 APIs)
+###  File: routes/classes.js | controllers/classes.js
+###  GET: khong can token | POST/PUT/DELETE: ADMIN
+################################################################################
+
+--- 2.1 Lay danh sach Lop ---
+Method : GET
+URL    : http://localhost:3000/api/v1/classes
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang Classes[] (populate department)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/classes
+
+
+--- 2.2 Lay Lop theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/classes/{{CLASS_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Object Class (populate department)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/classes/{{CLASS_ID}}
+
+
+--- 2.3 Tao Lop moi ---
+Method : POST
+URL    : http://localhost:3000/api/v1/classes
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "CNTT01",
+  "department": "{{DEPT_ID}}"
+}
+Expect : 200 — Object Class moi
+Note   : name (required, unique), department (ObjectId → department, required)
+Action : Luu _id → {{CLASS_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/classes \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"CNTT01\", \"department\": \"{{DEPT_ID}}\"}"
+
+
+--- 2.4 Cap nhat Lop ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/classes/{{CLASS_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "CNTT01-Updated"
+}
+Expect : 200 — Object Class da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/classes/{{CLASS_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"CNTT01-Updated\"}"
+
+
+--- 2.5 Xoa Lop (soft-delete) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/classes/{{CLASS_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Class co isDeleted: true
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/classes/{{CLASS_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 3: SEMESTERS — Quan ly Hoc ky (5 APIs)
+###  File: routes/semesters.js | controllers/semesters.js
+###  GET: khong can token | POST/PUT/DELETE: ADMIN
+################################################################################
+
+--- 3.1 Lay danh sach Hoc ky ---
+Method : GET
+URL    : http://localhost:3000/api/v1/semesters
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang Semesters[]
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/semesters
+
+
+--- 3.2 Lay Hoc ky theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/semesters/{{SEM_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Object Semester
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/semesters/{{SEM_ID}}
+
+
+--- 3.3 Tao Hoc ky moi ---
+Method : POST
+URL    : http://localhost:3000/api/v1/semesters
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "HK1 2025-2026",
+  "startDate": "2025-09-01",
+  "endDate": "2026-01-15"
+}
+Expect : 200 — Object Semester moi
+Note   : name (required, unique), startDate (Date, required), endDate (Date, required)
+Action : Luu _id → {{SEM_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/semesters \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"HK1 2025-2026\", \"startDate\": \"2025-09-01\", \"endDate\": \"2026-01-15\"}"
+
+
+--- 3.4 Cap nhat Hoc ky ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/semesters/{{SEM_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "HK1 2025-2026 Updated"
+}
+Expect : 200 — Object Semester da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/semesters/{{SEM_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"HK1 2025-2026 Updated\"}"
+
+
+--- 3.5 Xoa Hoc ky (soft-delete) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/semesters/{{SEM_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Semester co isDeleted: true
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/semesters/{{SEM_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 4: SUBJECTS — Quan ly Mon hoc (5 APIs)
+###  File: routes/subjects.js | controllers/subjects.js
+###  GET: khong can token | POST/PUT/DELETE: ADMIN
+################################################################################
+
+--- 4.1 Lay danh sach Mon hoc ---
+Method : GET
+URL    : http://localhost:3000/api/v1/subjects
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang Subjects[]
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/subjects
+
+
+--- 4.2 Lay Mon hoc theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/subjects/{{SUBJ_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Object Subject
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/subjects/{{SUBJ_ID}}
+
+
+--- 4.3 Tao Mon hoc moi ---
+Method : POST
+URL    : http://localhost:3000/api/v1/subjects
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "Lap trinh Web",
+  "subjectCode": "CS101",
+  "credits": 3
+}
+Expect : 200 — Object Subject moi
+Note   : name (required), subjectCode (required, unique), credits (Number, required, min: 1)
+Action : Luu _id → {{SUBJ_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/subjects \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"Lap trinh Web\", \"subjectCode\": \"CS101\", \"credits\": 3}"
+
+
+--- 4.4 Cap nhat Mon hoc ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/subjects/{{SUBJ_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "name": "Lap trinh Web Nang cao",
+  "credits": 4
+}
+Expect : 200 — Object Subject da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/subjects/{{SUBJ_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"Lap trinh Web Nang cao\", \"credits\": 4}"
+
+
+--- 4.5 Xoa Mon hoc (soft-delete) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/subjects/{{SUBJ_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Subject co isDeleted: true
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/subjects/{{SUBJ_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 5: TEACHERS — Quan ly Giao vien (7 APIs)
+###  File: routes/teachers.js | controllers/teachers.js
+###  GET /: checkLogin | GET /:id: khong can token
+###  POST/PUT/DELETE/trash/restore: ADMIN
+################################################################################
+
+--- 5.1 Lay danh sach Giao vien ---
+Method : GET
+URL    : http://localhost:3000/api/v1/teachers
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Teachers[] (populate user, department)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/teachers \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 5.2 Lay Giao vien theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}
+Headers: (khong can token)
+Body   : (khong co)
+Expect : 200 — Object Teacher (populate user, department)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}
+
+
+--- 5.3 Tao Giao vien moi (tu dong tao User TEACHER) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/teachers
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "username": "giaovien01",
+  "password": "GV@12345",
+  "email": "gv01@test.com",
+  "fullName": "Le Thi C",
+  "phone": "0901234567",
+  "department": "{{DEPT_ID}}"
+}
+Expect : 200 — Object Teacher (populate user, department)
+Note   : Tu tao User role TEACHER trong transaction. Default password: Default@123
+Action : Luu _id → {{TEACHER_ID}}, dang nhap GV lay {{TEACHER_TOKEN}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/teachers \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"giaovien01\", \"password\": \"GV@12345\", \"email\": \"gv01@test.com\", \"fullName\": \"Le Thi C\", \"phone\": \"0901234567\", \"department\": \"{{DEPT_ID}}\"}"
+
+
+--- 5.4 Cap nhat Giao vien ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "fullName": "Le Thi C Updated",
+  "phone": "0909999999"
+}
+Expect : 200 — Object Teacher da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/teachers/{{TEACHER_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"fullName\": \"Le Thi C Updated\", \"phone\": \"0909999999\"}"
+
+
+--- 5.5 Xoa Giao vien (rang buoc: khong xoa neu dang day) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Teacher co isDeleted: true
+Expect : 400 — "Khong the xoa. Giao vien dang giang day lop hoc phan"
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/teachers/{{TEACHER_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 5.6 Xem Thung rac Giao vien ---
+Method : GET
+URL    : http://localhost:3000/api/v1/teachers/trash
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Teachers[] co isDeleted: true
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/teachers/trash \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 5.7 Khoi phuc Giao vien tu Thung rac ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}/restore
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Teacher co isDeleted: false
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/teachers/{{TEACHER_ID}}/restore \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 6: STUDENTS — Quan ly Sinh vien (7 APIs)
+###  File: routes/students.js | controllers/students.js
+###  GET /: checkLogin | GET /:id: khong can token
+###  POST/PUT/DELETE/trash/restore: ADMIN
+################################################################################
+
+--- 6.1 Lay danh sach Sinh vien ---
+Method : GET
+URL    : http://localhost:3000/api/v1/students
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Students[] (populate user, class)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/students \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 6.2 Lay Sinh vien theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/students/{{STUDENT_ID}}
+Headers: (khong can token)
+Body   : (khong co)
+Expect : 200 — Object Student (populate user, class)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/students/{{STUDENT_ID}}
+
+
+--- 6.3 Tao Sinh vien moi (tu dong tao User STUDENT) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/students
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "username": "sinhvien02",
+  "password": "SV@12345",
+  "email": "sv02@test.com",
+  "fullName": "Pham Van D",
+  "studentCode": "SV002",
+  "phone": "0912345678",
+  "dateOfBirth": "2000-05-15",
+  "classId": "{{CLASS_ID}}"
+}
+Expect : 200 — Object Student (populate user, class)
+Note   : Tu tao User role STUDENT trong transaction. Default password: Default@123
+         studentCode (required, unique), fullName (required), classId → truong "class"
+Action : Luu _id → {{STUDENT_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/students \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"sinhvien02\", \"password\": \"SV@12345\", \"email\": \"sv02@test.com\", \"fullName\": \"Pham Van D\", \"studentCode\": \"SV002\", \"phone\": \"0912345678\", \"dateOfBirth\": \"2000-05-15\", \"classId\": \"{{CLASS_ID}}\"}"
+
+
+--- 6.4 Cap nhat Sinh vien ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/students/{{STUDENT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "fullName": "Pham Van D Updated",
+  "phone": "0988888888"
+}
+Expect : 200 — Object Student da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/students/{{STUDENT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"fullName\": \"Pham Van D Updated\", \"phone\": \"0988888888\"}"
+
+
+--- 6.5 Xoa Sinh vien (rang buoc: khong xoa neu dang hoc) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/students/{{STUDENT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Student co isDeleted: true
+Expect : 400 — "Khong the xoa. Sinh vien dang theo hoc lop hoc phan"
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/students/{{STUDENT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 6.6 Xem Thung rac Sinh vien ---
+Method : GET
+URL    : http://localhost:3000/api/v1/students/trash
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Students[] co isDeleted: true
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/students/trash \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 6.7 Khoi phuc Sinh vien tu Thung rac ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/students/{{STUDENT_ID}}/restore
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Student co isDeleted: false
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/students/{{STUDENT_ID}}/restore \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 7: COURSECLASSES — Lop Hoc Phan (10 APIs)
+###  File: routes/courseclasses.js | controllers/courseclasses.js
+###  GET: khong can token (tru /my/teaching can TEACHER)
+###  POST/PUT/DELETE: ADMIN
+################################################################################
+
+--- 7.1 Lay danh sach Lop HP (co filter query) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses
+URL alt: http://localhost:3000/api/v1/courseclasses?semester={{SEM_ID}}
+URL alt: http://localhost:3000/api/v1/courseclasses?teacher={{TEACHER_ID}}
+URL alt: http://localhost:3000/api/v1/courseclasses?semester={{SEM_ID}}&teacher={{TEACHER_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang CourseClasses[] (populate semester, subject, teacher→user.fullName)
+
+cURL:
+curl -X GET "http://localhost:3000/api/v1/courseclasses"
+curl -X GET "http://localhost:3000/api/v1/courseclasses?semester={{SEM_ID}}"
+curl -X GET "http://localhost:3000/api/v1/courseclasses?teacher={{TEACHER_ID}}"
+
+
+--- 7.2 Lay Lop HP cua Giao vien dang nhap ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/my/teaching
+Headers: Authorization: Bearer {{TEACHER_TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang CourseClasses[] (chi cua teacher do)
+Note   : Phai dang nhap bang tai khoan TEACHER
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/courseclasses/my/teaching \
+  -H "Authorization: Bearer {{TEACHER_TOKEN}}"
+
+
+--- 7.3 Lay danh sach phong hoc ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/rooms
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang string[] (162 phong: E1-01-01 → E1-09-18)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/courseclasses/rooms
+
+
+--- 7.4 Lay danh sach ca hoc hop le ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/schedule-slots
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — { daysOfWeek: [2,3,4,5,6,7], slots: [{startPeriod,endPeriod}] }
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/courseclasses/schedule-slots
+
+
+--- 7.5 Lay lich trong cua GV trong hoc ky ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/available-slots?semester={{SEM_ID}}&teacher={{TEACHER_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang [{dayOfWeek, startPeriod, endPeriod}]
+Expect : 400 — "semester va teacher la bat buoc"
+
+cURL:
+curl -X GET "http://localhost:3000/api/v1/courseclasses/available-slots?semester={{SEM_ID}}&teacher={{TEACHER_ID}}"
+
+
+--- 7.6 Lay phong trong theo thoi gian ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/available-rooms?semester={{SEM_ID}}&dayOfWeek=2&startPeriod=1&endPeriod=3
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Mang string[] (phong chua bi chiem)
+Expect : 400 — "semester, dayOfWeek, startPeriod, endPeriod la bat buoc"
+
+cURL:
+curl -X GET "http://localhost:3000/api/v1/courseclasses/available-rooms?semester={{SEM_ID}}&dayOfWeek=2&startPeriod=1&endPeriod=3"
+
+
+--- 7.7 Lay Lop HP theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/courseclasses/{{CC_ID}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — Object CourseClass (populate semester, subject, teacher→user)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/courseclasses/{{CC_ID}}
+
+
+--- 7.8 Tao Lop HP moi (check trung lich GV + phong) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/courseclasses
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "semester": "{{SEM_ID}}",
+  "subject": "{{SUBJ_ID}}",
+  "teacher": "{{TEACHER_ID}}",
+  "maxStudents": 40,
+  "room": "E1-01-01",
+  "schedule": {
+    "dayOfWeek": 2,
+    "startPeriod": 1,
+    "endPeriod": 3
+  }
+}
+Expect : 200 — Object CourseClass moi
+Expect : 400 — "Ca hoc khong hop le. Chi chap nhan: 1-3, 4-6, 2-6, 7-11"
+Expect : 400 — "Phong hoc khong ton tai trong he thong"
+Expect : 400 — "Giao vien bi trung lich day (Thu X, tiet Y-Z)"
+Expect : 400 — "Phong ... bi trung lich (Thu X, tiet Y-Z)"
+Action : Luu _id → {{CC_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/courseclasses \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"semester\": \"{{SEM_ID}}\", \"subject\": \"{{SUBJ_ID}}\", \"teacher\": \"{{TEACHER_ID}}\", \"maxStudents\": 40, \"room\": \"E1-01-01\", \"schedule\": {\"dayOfWeek\": 2, \"startPeriod\": 1, \"endPeriod\": 3}}"
+
+
+--- 7.9 Cap nhat Lop HP (check trung lich, exclude ban ghi hien tai) ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/courseclasses/{{CC_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "room": "E1-02-05",
+  "maxStudents": 50,
+  "schedule": {
+    "dayOfWeek": 3,
+    "startPeriod": 4,
+    "endPeriod": 6
+  }
+}
+Expect : 200 — Object CourseClass da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/courseclasses/{{CC_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"room\": \"E1-02-05\", \"maxStudents\": 50, \"schedule\": {\"dayOfWeek\": 3, \"startPeriod\": 4, \"endPeriod\": 6}}"
+
+
+--- 7.10 Xoa Lop HP (soft-delete) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/courseclasses/{{CC_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object CourseClass co isDeleted: true
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/courseclasses/{{CC_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 8: AUTH — Xac thuc & Tai khoan (7 APIs)
+###  File: routes/auth.js
+###  Middleware: RegisterValidator, ChangePasswordValidator, checkLogin
+################################################################################
+
+--- 8.1 Dang ky tai khoan sinh vien ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/register
+Headers: Content-Type: application/json
+Auth   : Khong can
+Body   :
+{
+  "username": "sinhvien01",
+  "password": "SinhVien@123",
+  "email": "sv01@test.com",
+  "fullName": "Nguyen Van A",
+  "studentCode": "SV001",
+  "classId": "{{CLASS_ID}}"
+}
+Expect : 200 — Object Student co populate user
+Note   : Validator: username (alphanumeric), password (min 8, 1 hoa, 1 thuong, 1 so, 1 dac biet), email (email format)
+         Tu dong tao User role STUDENT + Student trong transaction
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"sinhvien01\", \"password\": \"SinhVien@123\", \"email\": \"sv01@test.com\", \"fullName\": \"Nguyen Van A\", \"studentCode\": \"SV001\", \"classId\": \"{{CLASS_ID}}\"}"
+
+
+--- 8.2 Dang nhap ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/login
+Headers: Content-Type: application/json
+Auth   : Khong can
+Body   :
+{
+  "username": "sinhvien01",
+  "password": "SinhVien@123"
+}
+Expect : 200 — Tra ve chuoi token
+Expect : 404 — "thong tin dang nhap khong dung" (sai 3 lan → khoa 1h)
+Action : Luu token vao {{STUDENT_TOKEN}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"sinhvien01\", \"password\": \"SinhVien@123\"}"
+
+
+--- 8.3 Lay thong tin user dang dang nhap ---
+Method : GET
+URL    : http://localhost:3000/api/v1/auth/me
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object User
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/auth/me \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 8.4 Doi mat khau ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/changepassword
+Headers: Authorization: Bearer {{STUDENT_TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "oldpassword": "SinhVien@123",
+  "newpassword": "SinhVien@456"
+}
+Expect : 200 — "doi pass thanh cong"
+Expect : 404 — "old password khong dung"
+Note   : Validator: newpassword (min 8, 1 hoa, 1 thuong, 1 so, 1 dac biet)
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/changepassword \
+  -H "Authorization: Bearer {{STUDENT_TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"oldpassword\": \"SinhVien@123\", \"newpassword\": \"SinhVien@456\"}"
+
+
+--- 8.5 Quen mat khau (gui email) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/forgotpassword
+Headers: Content-Type: application/json
+Auth   : Khong can
+Body   :
+{
+  "email": "sv01@test.com"
+}
+Expect : 200 — "check mail de cap nhat passs"
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/forgotpassword \
+  -H "Content-Type: application/json" \
+  -d "{\"email\": \"sv01@test.com\"}"
+
+
+--- 8.6 Reset mat khau bang token ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/resetpassword/{{RESET_TOKEN}}
+Headers: Content-Type: application/json
+Auth   : Khong can
+Body   :
+{
+  "password": "SinhVien@789"
+}
+Expect : 200 — "cap nhat thanh cong"
+Expect : 404 — "token loi" hoac "ma het han"
+Note   : {{RESET_TOKEN}} lay tu DB (forgotPasswordToken) hoac email
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/resetpassword/{{RESET_TOKEN}} \
+  -H "Content-Type: application/json" \
+  -d "{\"password\": \"SinhVien@789\"}"
+
+
+--- 8.7 Dang xuat ---
+Method : POST
+URL    : http://localhost:3000/api/v1/auth/logout
+Headers: Authorization: Bearer {{STUDENT_TOKEN}}
+Body   : (khong co)
+Expect : 200 — "logout thanh cong"
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/auth/logout \
+  -H "Authorization: Bearer {{STUDENT_TOKEN}}"
+
+
+################################################################################
+###  NHOM 9: ENROLLMENTS — Dang ky Hoc phan (3 APIs)
+###  File: routes/enrollments.js | controllers/enrollments.js
+###  GET /: checkLogin (STUDENT lay cua minh)
+###  GET /courseclass/:id: checkLogin
+###  POST /register: STUDENT
+################################################################################
+
+--- 9.1 Dang ky Hoc phan (Role: STUDENT) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/enrollments/register
+Headers: Authorization: Bearer {{STUDENT_TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "courseClassId": "{{CC_ID}}"
+}
+Expect : 200 — Object Enrollment moi
+Expect : 404 — "student profile khong ton tai"
+Expect : 404 — "lop hoc phan khong ton tai"
+Expect : 409 — "da dang ky lop hoc phan nay roi"
+Expect : 400 — "Da dang ky mon X trong hoc ky nay roi"
+Expect : 400 — "Trung lich voi lop X (Thu Y, tiet Z-W)"
+Expect : 400 — "lop hoc phan da day"
+Note   : Tu dong tao Grade + tang currentStudents trong transaction
+Action : Luu _id → {{ENROLLMENT_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/enrollments/register \
+  -H "Authorization: Bearer {{STUDENT_TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"courseClassId\": \"{{CC_ID}}\"}"
+
+
+--- 9.2 Lay DS Enrollment cua SV dang nhap ---
+Method : GET
+URL    : http://localhost:3000/api/v1/enrollments
+Headers: Authorization: Bearer {{STUDENT_TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Enrollments[] (populate courseClass→semester,subject,teacher)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/enrollments \
+  -H "Authorization: Bearer {{STUDENT_TOKEN}}"
+
+
+--- 9.3 Lay DS Enrollment theo CourseClass ---
+Method : GET
+URL    : http://localhost:3000/api/v1/enrollments/courseclass/{{CC_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Enrollments[] (populate student)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/enrollments/courseclass/{{CC_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 10: GRADES — Bang diem (5 APIs)
+###  File: routes/grades.js | controllers/grades.js
+###  GET /enrollment/:id: checkLogin
+###  GET /courseclass/:id: TEACHER hoac ADMIN
+###  GET /my: STUDENT
+###  PUT /bulk: TEACHER hoac ADMIN
+###  PUT /:id: TEACHER hoac ADMIN
+################################################################################
+
+--- 10.1 Lay diem theo Enrollment ---
+Method : GET
+URL    : http://localhost:3000/api/v1/grades/enrollment/{{ENROLLMENT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Grade (populate enrollment→student,courseClass→subject,semester)
+Expect : 404 — "grade khong ton tai"
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/grades/enrollment/{{ENROLLMENT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 10.2 Lay diem theo CourseClass (Role: TEACHER/ADMIN) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/grades/courseclass/{{CC_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Grades[] (populate enrollment→student)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/grades/courseclass/{{CC_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 10.3 Xem diem ca nhan (Role: STUDENT) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/grades/my
+Headers: Authorization: Bearer {{STUDENT_TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Grades[] (populate enrollment→courseClass→subject,semester)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/grades/my \
+  -H "Authorization: Bearer {{STUDENT_TOKEN}}"
+
+
+--- 10.4 Cap nhat diem hang loat (Role: TEACHER/ADMIN) ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/grades/bulk
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "grades": [
+    {
+      "gradeId": "{{GRADE_ID_1}}",
+      "attendanceScore": 9,
+      "midtermScore": 7.5,
+      "finalScore": 8
+    },
+    {
+      "gradeId": "{{GRADE_ID_2}}",
+      "attendanceScore": 8,
+      "midtermScore": 6,
+      "finalScore": 7
+    }
+  ]
+}
+Expect : 200 — Mang Grades[] (co averageScore tu tinh)
+Expect : 400 — "grades array la bat buoc"
+Note   : averageScore = attendanceScore*0.1 + midtermScore*0.3 + finalScore*0.6
+         Tu dong tao Notification + emit socket 'grade_updated' cho SV
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/grades/bulk \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"grades\": [{\"gradeId\": \"{{GRADE_ID}}\", \"attendanceScore\": 9, \"midtermScore\": 7.5, \"finalScore\": 8}]}"
+
+
+--- 10.5 Cap nhat diem 1 sinh vien (Role: TEACHER/ADMIN) ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/grades/{{GRADE_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "attendanceScore": 9,
+  "midtermScore": 7.5,
+  "finalScore": 8
+}
+Expect : 200 — Object Grade (co averageScore tu tinh)
+Expect : 404 — "grade khong ton tai"
+Note   : Diem min: 0, max: 10. Tu dong tao Notification + emit socket
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/grades/{{GRADE_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"attendanceScore\": 9, \"midtermScore\": 7.5, \"finalScore\": 8}"
+
+
+################################################################################
+###  NHOM 11: ATTENDANCES — Diem danh (5 APIs)
+###  File: routes/attendances.js | controllers/attendances.js
+###  GET: checkLogin (enrollment: all, courseclass: TEACHER/ADMIN)
+###  POST/POST bulk/PUT: TEACHER hoac ADMIN
+################################################################################
+
+--- 11.1 Lay diem danh theo Enrollment ---
+Method : GET
+URL    : http://localhost:3000/api/v1/attendances/enrollment/{{ENROLLMENT_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Attendances[] (sort date desc)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/attendances/enrollment/{{ENROLLMENT_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 11.2 Lay diem danh theo CourseClass (Role: TEACHER/ADMIN) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/attendances/courseclass/{{CC_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Attendances[] (populate enrollment→student, sort date desc)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/attendances/courseclass/{{CC_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 11.3 Tao 1 ban ghi Diem danh (Role: TEACHER/ADMIN) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/attendances
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "enrollmentId": "{{ENROLLMENT_ID}}",
+  "date": "2026-04-06",
+  "status": "present",
+  "note": ""
+}
+Expect : 200 — Object Attendance moi
+Expect : 404 — "enrollment khong ton tai"
+Note   : status enum: "present", "absent", "late"
+Action : Luu _id → {{ATTENDANCE_ID}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/attendances \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"enrollmentId\": \"{{ENROLLMENT_ID}}\", \"date\": \"2026-04-06\", \"status\": \"present\", \"note\": \"\"}"
+
+
+--- 11.4 Tao hang loat Diem danh (Role: TEACHER/ADMIN) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/attendances/bulk
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "records": [
+    {
+      "enrollmentId": "{{ENROLLMENT_ID}}",
+      "date": "2026-04-07",
+      "status": "present",
+      "note": "Di hoc day du"
+    },
+    {
+      "enrollmentId": "{{ENROLLMENT_ID}}",
+      "date": "2026-04-08",
+      "status": "absent",
+      "note": "Nghi khong phep"
+    }
+  ]
+}
+Expect : 200 — Mang Attendances[]
+Note   : Dung findOneAndUpdate voi upsert:true (tao moi hoac cap nhat neu trung enrollment+date)
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/attendances/bulk \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"records\": [{\"enrollmentId\": \"{{ENROLLMENT_ID}}\", \"date\": \"2026-04-07\", \"status\": \"present\", \"note\": \"Di hoc day du\"}, {\"enrollmentId\": \"{{ENROLLMENT_ID}}\", \"date\": \"2026-04-08\", \"status\": \"absent\", \"note\": \"Nghi khong phep\"}]}"
+
+
+--- 11.5 Cap nhat Diem danh (Role: TEACHER/ADMIN) ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/attendances/{{ATTENDANCE_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "status": "late",
+  "note": "Di muon 10 phut"
+}
+Expect : 200 — Object Attendance da cap nhat
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/attendances/{{ATTENDANCE_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"status\": \"late\", \"note\": \"Di muon 10 phut\"}"
+
+
+################################################################################
+###  NHOM 12: NOTIFICATIONS — Thong bao (5 APIs)
+###  File: routes/notifications.js | controllers/notifications.js
+###  GET /, GET /unread, PUT /:id/read, DELETE /:id: checkLogin
+###  POST /: ADMIN hoac TEACHER
+################################################################################
+
+--- 12.1 Lay tat ca Thong bao cua toi ---
+Method : GET
+URL    : http://localhost:3000/api/v1/notifications
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Notifications[] (sort createdAt desc)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/notifications \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 12.2 Lay Thong bao chua doc ---
+Method : GET
+URL    : http://localhost:3000/api/v1/notifications/unread
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Notifications[] (isRead: false)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/notifications/unread \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 12.3 Gui Thong bao (Role: ADMIN/TEACHER) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/notifications
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+
+Body (gui cho tat ca user):
+{
+  "title": "Thong bao thi",
+  "content": "Lich thi cuoi ky da cap nhat",
+  "targetType": "all"
+}
+
+Body (gui cho 1 lop hanh chinh):
+{
+  "title": "Thong bao lop",
+  "content": "Hop lop ngay mai",
+  "targetType": "class",
+  "targetId": "{{CLASS_ID}}"
+}
+
+Body (gui cho 1 lop hoc phan):
+{
+  "title": "Thong bao mon hoc",
+  "content": "Nop bai tap tuan 5",
+  "targetType": "courseclass",
+  "targetId": "{{CC_ID}}"
+}
+
+Body (gui cho 1 user):
+{
+  "title": "Thong bao ca nhan",
+  "content": "Ban can gap giao vu",
+  "targetType": "user",
+  "targetId": "{{USER_ID}}"
+}
+
+Expect : 200 — Mang Notifications[]
+Note   : Emit socket 'new_notification' cho tung user
+         targetType: "all" | "class" | "courseclass" | "user"
+Action : Luu _id → {{NOTIF_ID}}
+
+cURL (gui cho tat ca):
+curl -X POST http://localhost:3000/api/v1/notifications \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\": \"Thong bao thi\", \"content\": \"Lich thi cuoi ky da cap nhat\", \"targetType\": \"all\"}"
+
+cURL (gui cho 1 lop hanh chinh):
+curl -X POST http://localhost:3000/api/v1/notifications \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\": \"Thong bao lop\", \"content\": \"Hop lop ngay mai\", \"targetType\": \"class\", \"targetId\": \"{{CLASS_ID}}\"}"
+
+cURL (gui cho 1 lop hoc phan):
+curl -X POST http://localhost:3000/api/v1/notifications \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\": \"Thong bao mon hoc\", \"content\": \"Nop bai tap tuan 5\", \"targetType\": \"courseclass\", \"targetId\": \"{{CC_ID}}\"}"
+
+cURL (gui cho 1 user):
+curl -X POST http://localhost:3000/api/v1/notifications \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\": \"Thong bao ca nhan\", \"content\": \"Ban can gap giao vu\", \"targetType\": \"user\", \"targetId\": \"{{USER_ID}}\"}"
+
+
+--- 12.4 Danh dau da doc ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/notifications/{{NOTIF_ID}}/read
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Notification co isRead: true
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/notifications/{{NOTIF_ID}}/read \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 12.5 Xoa Thong bao (soft-delete) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/notifications/{{NOTIF_ID}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object Notification co isDeleted: true
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/notifications/{{NOTIF_ID}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 13: MESSAGES — Tin nhan (5 APIs)
+###  File: routes/messages.js
+###  Tat ca: checkLogin
+################################################################################
+
+--- 13.1 Gui tin nhan (text) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/messages
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "to": "{{USER_ID_RECEIVER}}",
+  "text": "Xin chao, ban co ranh khong?"
+}
+Expect : 200 — Object Message (messageContent.type = "text")
+Note   : Emit socket 'new_message' cho receiver
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/messages \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"to\": \"{{USER_ID_RECEIVER}}\", \"text\": \"Xin chao, ban co ranh khong?\"}"
+
+
+--- 13.2 Gui tin nhan (file) ---
+Method : POST
+URL    : http://localhost:3000/api/v1/messages
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : form-data
+         Key "to"   → {{USER_ID_RECEIVER}}
+         Key "file" → [Chon file anh]
+Expect : 200 — Object Message (messageContent.type = "file")
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/messages \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -F "to={{USER_ID_RECEIVER}}" \
+  -F "file=@/path/to/image.jpg"
+
+
+--- 13.3 Lay danh sach lien he (contacts) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/messages/contacts
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Users[]
+Note   : ADMIN: tat ca user | TEACHER: admin + SV dang hoc | STUDENT: GV dang day
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/messages/contacts \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 13.4 Lay lich su tin nhan voi 1 user ---
+Method : GET
+URL    : http://localhost:3000/api/v1/messages/{{USER_ID_RECEIVER}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Messages[] (sort createdAt desc)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/messages/{{USER_ID_RECEIVER}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 13.5 Lay danh sach hoi thoai ---
+Method : GET
+URL    : http://localhost:3000/api/v1/messages
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang [{user: Object, message: Object}]
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/messages \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###  NHOM 14: UPLOAD — Tai file (6 APIs)
+###  File: routes/upload.js
+###  Khong yeu cau token (tat ca public)
+################################################################################
+
+--- 14.1 Upload 1 file anh ---
+Method : POST
+URL    : http://localhost:3000/api/v1/upload/one_file
+Headers: (khong can token)
+Body   : form-data
+         Key "file" → [Chon 1 file anh .jpg/.png]
+Expect : 200 — { filename, path, size }
+Note   : Max 5MB, chi chap nhan file image
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/upload/one_file \
+  -F "file=@/path/to/image.jpg"
+
+
+--- 14.2 Upload nhieu file ---
+Method : POST
+URL    : http://localhost:3000/api/v1/upload/multiple_file
+Headers: (khong can token)
+Body   : form-data
+         Key "files" → [Chon 2-5 file anh]
+Expect : 200 — Mang [{ filename, path, size }]
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/upload/multiple_file \
+  -F "files=@/path/to/image1.jpg" \
+  -F "files=@/path/to/image2.jpg"
+
+
+--- 14.3 Xem file da upload ---
+Method : GET
+URL    : http://localhost:3000/api/v1/upload/{{FILENAME}}
+Headers: (khong can)
+Body   : (khong co)
+Expect : 200 — File binary (anh/tai lieu)
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/upload/{{FILENAME}}
+
+
+--- 14.4 Import Excel danh sach sinh vien ---
+Method : POST
+URL    : http://localhost:3000/api/v1/upload/excel
+Headers: (khong can token)
+Body   : form-data
+         Key "file" → [Chon file .xlsx]
+Expect : 200 — Mang [{ success: true/false, data: [...] }]
+Note   : File Excel can co cot: MSSV(A) | Ho ten(B) | Email(C) | SDT(D)
+         Moi dong tu tao User(username=MSSV, password=Default@123) + Student
+         Xu ly theo batch 50 dong/transaction
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/upload/excel \
+  -F "file=@/path/to/students.xlsx"
+
+
+--- 14.5 Import Excel danh sach giao vien ---
+Method : POST
+URL    : http://localhost:3000/api/v1/upload/excel/teachers
+Headers: (khong can token)
+Body   : form-data
+         Key "file" → [Chon file .xlsx]
+Expect : 200 — Mang [{ success: true/false, data: [...] }]
+Note   : File Excel can co cot: Ma GV(A) | Ho ten(B) | Email(C) | SDT(D) | Department ObjectId(E)
+         Moi dong tu tao User(username=MaGV, password=Default@123) + Teacher
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/upload/excel/teachers \
+  -F "file=@/path/to/teachers.xlsx"
+
+
+--- 14.6 Import Excel diem sinh vien ---
+Method : POST
+URL    : http://localhost:3000/api/v1/upload/excel/grades
+Headers: (khong can token)
+Body   : form-data
+         Key "file"          → [Chon file .xlsx]
+         Key "courseClassId" → {{CC_ID}}
+Expect : 200 — Mang [{ success, studentCode, grade/message }]
+Expect : 400 — "courseClassId la bat buoc"
+Note   : File Excel can co cot: MSSV(A) | Diem CC(B) | Diem GK(C) | Diem CK(D)
+         Tu dong tinh averageScore = CC*0.1 + GK*0.3 + CK*0.6
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/upload/excel/grades \
+  -F "file=@/path/to/grades.xlsx" \
+  -F "courseClassId={{CC_ID}}"
+
+
+################################################################################
+###  NHOM 15: USERS — Quan ly tai khoan (7 APIs)
+###  File: routes/users.js | controllers/users.js
+###  Role: ADMIN (tat ca endpoints)
+###  Middleware: checkLogin, checkRole("ADMIN"), CreateUserValidator, ModifyUserValidator
+################################################################################
+
+--- 15.1 Lay danh sach Users (isDeleted: false) ---
+Method : GET
+URL    : http://localhost:3000/api/v1/users
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Users[]
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/users \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 15.2 Lay User theo ID ---
+Method : GET
+URL    : http://localhost:3000/api/v1/users/{{USER_ID}}
+Headers: (khong bat buoc token)
+Body   : (khong co)
+Expect : 200 — Mang [User]
+Expect : 404 — "id not found"
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/users/{{USER_ID}}
+
+
+--- 15.3 Tao User moi ---
+Method : POST
+URL    : http://localhost:3000/api/v1/users
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "username": "testuser01",
+  "password": "Test@12345",
+  "email": "testuser01@test.com",
+  "role": "TEACHER",
+  "fullname": "Tran Van B"
+}
+Expect : 200 — Object User moi
+Note   : Validator: email (email, required), username (alphanumeric, required),
+         password (strong, required), role (enum: ADMIN/TEACHER/STUDENT, required)
+         Luu y: truong la "fullname" (chu thuong) theo controller CreateAnUser
+Action : Luu _id → {{USER_ID_NEW}}
+
+cURL:
+curl -X POST http://localhost:3000/api/v1/users \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"testuser01\", \"password\": \"Test@12345\", \"email\": \"testuser01@test.com\", \"role\": \"TEACHER\", \"fullname\": \"Tran Van B\"}"
+
+
+--- 15.4 Cap nhat User ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/users/{{USER_ID_NEW}}
+Headers: Authorization: Bearer {{TOKEN}}
+         Content-Type: application/json
+Body   :
+{
+  "fullName": "Tran Van B Updated"
+}
+Expect : 200 — Object User da cap nhat
+Note   : ModifyUserValidator cam thay doi: email, username, role.
+         password (optional, phai strong neu co)
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/users/{{USER_ID_NEW}} \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -H "Content-Type: application/json" \
+  -d "{\"fullName\": \"Tran Van B Updated\"}"
+
+
+--- 15.5 Xoa User (soft-delete + rang buoc) ---
+Method : DELETE
+URL    : http://localhost:3000/api/v1/users/{{USER_ID_NEW}}
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object User co isDeleted: true
+Expect : 400 — "Khong the xoa tai khoan ADMIN"
+Expect : 400 — "Khong the xoa. Tai khoan dang lien ket voi giao vien"
+Expect : 400 — "Khong the xoa. Tai khoan dang lien ket voi sinh vien"
+
+cURL:
+curl -X DELETE http://localhost:3000/api/v1/users/{{USER_ID_NEW}} \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 15.6 Xem Thung rac Users ---
+Method : GET
+URL    : http://localhost:3000/api/v1/users/trash
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Mang Users[] co isDeleted: true
+
+cURL:
+curl -X GET http://localhost:3000/api/v1/users/trash \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+--- 15.7 Khoi phuc User tu Thung rac ---
+Method : PUT
+URL    : http://localhost:3000/api/v1/users/{{USER_ID_NEW}}/restore
+Headers: Authorization: Bearer {{TOKEN}}
+Body   : (khong co)
+Expect : 200 — Object User co isDeleted: false
+
+cURL:
+curl -X PUT http://localhost:3000/api/v1/users/{{USER_ID_NEW}}/restore \
+  -H "Authorization: Bearer {{TOKEN}}"
+
+
+################################################################################
+###                         TONG KET CHECKLIST
+################################################################################
+
+┌─────────────────────┬───────────┬──────────────────────────────────────────┐
+│ Nhom                │ So API    │ Ghi chu                                  │
+├─────────────────────┼───────────┼──────────────────────────────────────────┤
+│ 0. Login Admin       │ 1         │ Buoc bat buoc dau tien                  │
+│ 8. Auth               │ 7         │ Register, Login, Logout, Me, Password    │
+│ 15. Users            │ 7         │ CRUD + Trash + Restore + rang buoc xoa  │
+│ 1. Departments      │ 5         │ CRUD + cascade Class/Teacher/Student     │
+│ 2. Classes            │ 5         │ CRUD + populate department               │
+│ 3. Semesters        │ 5         │ CRUD                                     │
+│ 4. Subjects          │ 5         │ CRUD                                     │
+│ 5. Teachers          │ 7         │ CRUD + Trash + Restore + rang buoc xoa  │
+│ 6. Students          │ 7         │ CRUD + Trash + Restore + rang buoc xoa  │
+│ 7. CourseClasses    │ 10        │ CRUD + rooms + slots + available + check │
+│ 9. Enrollments     │ 3         │ Register + List (SV/CC)                  │
+│ 10. Grades           │ 5         │ Get + Update + Bulk + My + Socket        │
+│ 11. Attendances     │ 5         │ Get + Create + Bulk + Update             │
+│ 12. Notifications   │ 5         │ Get + Unread + Create + Read + Delete    │
+│ 13. Messages        │ 5         │ Text + File + Contacts + History + Conv  │
+│ 14. Upload           │ 6         │ Single + Multi + View + Excel SV/GV/Diem │
+├─────────────────────┼───────────┼──────────────────────────────────────────┤
+│ TONG (khong tinh 0) │ 90 APIs   │ Cover 100% tu source code               │
+└─────────────────────┴───────────┴──────────────────────────────────────────┘
+
+BIEN POSTMAN CAN THIET:
+  {{TOKEN}}           — Token ADMIN (lay tu 0.1)
+  {{STUDENT_TOKEN}}   — Token STUDENT (lay tu 8.2 hoac dang nhap SV)
+  {{TEACHER_TOKEN}}   — Token TEACHER (dang nhap GV)
+  {{DEPT_ID}}         — _id Department (lay tu 1.3)
+  {{CLASS_ID}}        — _id Class (lay tu 2.3)
+  {{SEM_ID}}          — _id Semester (lay tu 3.3)
+  {{SUBJ_ID}}         — _id Subject (lay tu 4.3)
+  {{TEACHER_ID}}      — _id Teacher (lay tu 5.3)
+  {{STUDENT_ID}}      — _id Student (lay tu 6.3)
+  {{CC_ID}}           — _id CourseClass (lay tu 7.8)
+  {{ENROLLMENT_ID}}   — _id Enrollment (lay tu 9.1)
+  {{GRADE_ID}}        — _id Grade (lay tu 10.1 hoac 11.2)
+  {{ATTENDANCE_ID}}   — _id Attendance (lay tu 11.3)
+  {{NOTIF_ID}}        — _id Notification (lay tu 12.3)
+  {{USER_ID}}         — _id User bat ky
+  {{USER_ID_RECEIVER}}— _id User nhan tin nhan
+  {{RESET_TOKEN}}     — forgotPasswordToken (lay tu DB)
+  {{FILENAME}}        — Ten file da upload (lay tu 14.1)
+
+================================================================================
+                            — HET CHECKLIST —
+================================================================================
