@@ -4,6 +4,11 @@ let userController = require('../controllers/users')
 let { RegisterValidator, validatedResult, ChangePasswordValidator } = require('../utils/validator')
 let bcrypt = require('bcrypt')
 let jwt = require('jsonwebtoken')
+const { checkLogin } = require('../utils/authHandler')
+let crypto = require('crypto')
+let { sendMail } = require('../utils/mailHandler')
+let mongoose = require('mongoose')
+let studentModel = require('../schemas/students')
 
 router.post('/register', RegisterValidator, validatedResult, async function (req, res, next) {
     let session = await mongoose.startSession();
@@ -111,7 +116,6 @@ router.post('/forgotpassword', async function (req, res, next) {
     }
     res.send("check mail de cap nhat passs");
 })
-
 router.post('/resetpassword/:token', async function (req, res, next) {
     let token = req.params.token;
     let user = await userController.FindUserByToken(token);

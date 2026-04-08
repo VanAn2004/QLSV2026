@@ -2,26 +2,17 @@ var express = require("express");
 var router = express.Router();
 let teacherModel = require("../schemas/teachers");
 let userController = require("../controllers/users");
-let teacherController = require("../controllers/teachers");
 const { checkLogin, checkRole } = require("../utils/authHandler");
 let mongoose = require('mongoose')
 let courseClassModel = require('../schemas/courseclasses')
 
 router.get("/", checkLogin, async function (req, res, next) {
-  try {
-    let data = await teacherController.ListTeachers(req.query, false)
-    res.send(data);
-  } catch (error) {
-    res.status(400).send({ message: error.message })
-  }
+  let teachers = await teacherModel.find({ isDeleted: false }).populate('user').populate('department');
+  res.send(teachers);
 });
 router.get("/trash", checkLogin, checkRole("ADMIN"), async function (req, res, next) {
-  try {
-    let data = await teacherController.ListTeachers(req.query, true)
-    res.send(data);
-  } catch (error) {
-    res.status(400).send({ message: error.message })
-  }
+  let teachers = await teacherModel.find({ isDeleted: true }).populate('user').populate('department');
+  res.send(teachers);
 });
 router.put("/:id/restore", checkLogin, checkRole("ADMIN"), async function (req, res, next) {
   try {
