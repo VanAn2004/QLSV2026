@@ -32,7 +32,6 @@ router.put("/:id/restore", checkLogin, checkRole("ADMIN"), async function (req, 
     res.status(404).send({ message: err.message });
   }
 });
-
 router.get("/:id", async function (req, res, next) {
   try {
     let result = await userModel
@@ -47,7 +46,6 @@ router.get("/:id", async function (req, res, next) {
     res.status(404).send({ message: "id not found" });
   }
 });
-
 router.post("/", checkLogin, checkRole("ADMIN"), CreateUserValidator, validatedResult, async function (req, res, next) {
   try {
     let newUser = await userController.CreateAnUser(

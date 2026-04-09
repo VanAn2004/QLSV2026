@@ -20,6 +20,19 @@ app.use(cookieParser());
 app.use('/', indexRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/auth', require('./routes/auth'));
+app.use('/api/v1/messages', require('./routes/messages'));
+app.use('/api/v1/departments', require('./routes/departments'));
+app.use('/api/v1/classes', require('./routes/classes'));
+app.use('/api/v1/teachers', require('./routes/teachers'));
+app.use('/api/v1/students', require('./routes/students'));
+app.use('/api/v1/semesters', require('./routes/semesters'));
+app.use('/api/v1/subjects', require('./routes/subjects'));
+app.use('/api/v1/courseclasses', require('./routes/courseclasses'));
+app.use('/api/v1/enrollments', require('./routes/enrollments'));
+app.use('/api/v1/grades', require('./routes/grades'));
+app.use('/api/v1/attendances', require('./routes/attendances'));
+app.use('/api/v1/notifications', require('./routes/notifications'));
+app.use('/api/v1/upload', require('./routes/upload'));
 
 mongoose.connect(process.env.MONGO_URI);
 mongoose.connection.on('connected', function () {
